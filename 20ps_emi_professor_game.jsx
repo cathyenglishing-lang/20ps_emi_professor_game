@@ -991,7 +991,7 @@ function ResultsDashboard({ onBack }) {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr>
-                      {["Time", "Name", "Mode", "Score", "Duration"].map(label => (
+                      {["Time", "Name", "Mode", "Score", "Duration", "Details"].map(label => (
                         <th key={label} style={{ textAlign: "left", padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontFamily: "'DM Mono'", fontSize: 10, color: BASE.muted, letterSpacing: "0.1em" }}>{label}</th>
                       ))}
                     </tr>
@@ -1010,10 +1010,13 @@ function ResultsDashboard({ onBack }) {
                             <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontFamily: "'DM Mono'", fontSize: 12, color: BASE.ink }}>{row.mode}</td>
                             <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontSize: 15, color: BASE.ink }}>{row.score}/{row.total}</td>
                             <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontSize: 15, color: BASE.muted }}>{row.duration_seconds ?? "—"}s</td>
+                            <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontFamily: "'DM Mono'", fontSize: 11, color: "#B5451B" }}>
+                              {expanded ? "Hide" : "View"} Details
+                            </td>
                           </tr>
                           {expanded && (
                             <tr>
-                              <td colSpan={5} style={{ padding: 0, borderBottom: `1px solid ${BASE.rule}`, background: "#FAFAF7" }}>
+                              <td colSpan={6} style={{ padding: 0, borderBottom: `1px solid ${BASE.rule}`, background: "#FAFAF7" }}>
                                 <AttemptDetails attempt={row} />
                               </td>
                             </tr>
