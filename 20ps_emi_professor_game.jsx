@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchResultsSummary, submitGameResult } from "./src/resultsApi.js";
+import { downloadResultsCsv, fetchResultsSummary, submitGameResult } from "./src/resultsApi.js";
 
 /* ─── DATA ──────────────────────────────────────────────────────────────── */
 const LEVELS = [
@@ -181,7 +181,7 @@ const css = `
 `;
 
 /* ─── HOME SCREEN ───────────────────────────────────────────────────────── */
-function HomeScreen({ onStart, onViewResults }) {
+function HomeScreen({ onStart }) {
   return (
     <div style={{ minHeight: "100vh", background: BASE.bg, display: "flex", flexDirection: "column" }}>
       <style>{css}</style>
@@ -191,7 +191,6 @@ function HomeScreen({ onStart, onViewResults }) {
         <span style={{ fontFamily: "'DM Mono'", fontSize: 12, color: BASE.muted, letterSpacing: "0.12em", textTransform: "uppercase" }}>EMI · Pedagogy Lab</span>
         <span style={{ color: BASE.rule }}>—</span>
         <span style={{ fontFamily: "'DM Mono'", fontSize: 12, color: BASE.muted }}>Yi-hung Liao · NKNU 2026</span>
-        <button className="btn-ghost" onClick={onViewResults} style={{ marginLeft: "auto" }}>Results</button>
       </nav>
 
       {/* Hero */}
@@ -815,7 +814,7 @@ function QuizMode({ onBack }) {
   );
 }
 
-/* ─── RESULTS DASHBOARD ────────────────────────────────────────────────── */
+/* ─── ADMIN DASHBOARD ──────────────────────────────────────────────────── */
 function ResultsDashboard({ onBack }) {
   const [adminToken, setAdminToken] = useState(() => sessionStorage.getItem("20ps-results-token") || "");
   const [data, setData] = useState(null);
@@ -836,15 +835,31 @@ function ResultsDashboard({ onBack }) {
     }
   }
 
+  async function exportCsv() {
+    setError("");
+    try {
+      await downloadResultsCsv(adminToken.trim());
+    } catch (err) {
+      setError(err.message || "Could not export CSV.");
+    }
+  }
+
   return (
     <div style={{ minHeight: "100vh", background: BASE.bg, fontFamily: "'Cormorant Garamond', serif" }}>
       <style>{css}</style>
       <div style={{ borderBottom: `1px solid ${BASE.rule}`, padding: "16px 32px", background: "white", display: "flex", alignItems: "center", gap: 16 }}>
         <button className="btn-ghost" onClick={onBack}>← Back</button>
-        <div style={{ fontFamily: "'DM Mono'", fontSize: 12, color: BASE.muted, letterSpacing: "0.08em" }}>RESULTS DASHBOARD</div>
+        <div style={{ fontFamily: "'DM Mono'", fontSize: 12, color: BASE.muted, letterSpacing: "0.08em" }}>ADMIN DASHBOARD</div>
       </div>
 
       <div style={{ maxWidth: 980, margin: "48px auto", padding: "0 32px" }}>
+        <div style={{ marginBottom: 24 }}>
+          <h1 style={{ fontSize: 42, fontWeight: 300, color: BASE.ink, lineHeight: 1.1, marginBottom: 8 }}>Admin</h1>
+          <div style={{ fontSize: 16, color: BASE.muted, lineHeight: 1.6 }}>
+            Review anonymous attempts, level accuracy, and export records for analysis.
+          </div>
+        </div>
+
         <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 32 }}>
           <input
             value={adminToken}
@@ -865,6 +880,11 @@ function ResultsDashboard({ onBack }) {
           <button className="btn-primary" onClick={() => loadResults()} disabled={loading}>
             {loading ? "Loading…" : "Load Results"}
           </button>
+          {data && (
+            <button className="btn-ghost" onClick={exportCsv}>
+              Export CSV
+            </button>
+          )}
         </div>
 
         {error && (
@@ -950,10 +970,24 @@ function formatDate(value) {
 
 /* ─── APP ROOT ──────────────────────────────────────────────────────────── */
 export default function App() {
-  const [screen, setScreen] = useState("home");
+  const initialScreen = window.location.pathname.startsWith("/admin") ? "results" : "home";
+  const [screen, setScreen] = useState(initialScreen);
 
-  if (screen === "puzzle") return <PuzzleMode onBack={() => setScreen("home")} />;
-  if (screen === "quiz")   return <QuizMode   onBack={() => setScreen("home")} />;
-  if (screen === "results") return <ResultsDashboard onBack={() => setScreen("home")} />;
-  return <HomeScreen onStart={setScreen} onViewResults={() => setScreen("results")} />;
+  useEffect(() => {
+    function syncPath() {
+      setScreen(window.location.pathname.startsWith("/admin") ? "results" : "home");
+    }
+    window.addEventListener("popstate", syncPath);
+    return () => window.removeEventListener("popstate", syncPath);
+  }, []);
+
+  function goHome() {
+    window.history.pushState(null, "", "/");
+    setScreen("home");
+  }
+
+  if (screen === "puzzle") return <PuzzleMode onBack={goHome} />;
+  if (screen === "quiz")   return <QuizMode   onBack={goHome} />;
+  if (screen === "results") return <ResultsDashboard onBack={goHome} />;
+  return <HomeScreen onStart={setScreen} />;
 }

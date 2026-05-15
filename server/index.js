@@ -73,6 +73,21 @@ app.get("/api/results/summary", requireAdmin, async (req, res, next) => {
   }
 });
 
+app.get("/api/results.csv", requireAdmin, async (req, res, next) => {
+  try {
+    const rows = pool ? await readRecentPostgres(5000) : await readRecentLocal(5000);
+    res
+      .status(200)
+      .set({
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="20ps-results-${new Date().toISOString().slice(0, 10)}.csv"`,
+      })
+      .send(rowsToCsv(rows));
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.use((error, req, res, next) => {
   const status = error.status || 500;
   res.status(status).json({
@@ -239,6 +254,62 @@ function buildLevelTotals(rows) {
     };
     return summary;
   }, {});
+}
+
+function rowsToCsv(rows) {
+  const headers = [
+    "created_at",
+    "mode",
+    "score",
+    "total",
+    "duration_seconds",
+    "mega_correct",
+    "mega_total",
+    "macro_correct",
+    "macro_total",
+    "meso_correct",
+    "meso_total",
+    "micro_correct",
+    "micro_total",
+    "menano_correct",
+    "menano_total",
+    "answers_json",
+  ];
+
+  const lines = rows.map(row => {
+    const levels = row.level_breakdown || {};
+    return [
+      formatCsvDate(row.created_at),
+      row.mode,
+      row.score,
+      row.total,
+      row.duration_seconds,
+      levels.MEGA?.correct,
+      levels.MEGA?.total,
+      levels.MACRO?.correct,
+      levels.MACRO?.total,
+      levels.MESO?.correct,
+      levels.MESO?.total,
+      levels.MICRO?.correct,
+      levels.MICRO?.total,
+      levels.MENANO?.correct,
+      levels.MENANO?.total,
+      JSON.stringify(row.answers || []),
+    ].map(csvCell).join(",");
+  });
+
+  return [headers.join(","), ...lines].join("\n");
+}
+
+function csvCell(value) {
+  if (value === null || value === undefined) return "";
+  const text = String(value);
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function formatCsvDate(value) {
+  if (!value) return "";
+  return value instanceof Date ? value.toISOString() : value;
 }
 
 function requireAdmin(req, res, next) {

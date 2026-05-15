@@ -43,10 +43,10 @@ npm run dev
 預設網址：
 
 - 前端遊戲：`http://localhost:5173`
+- 後臺：`http://localhost:5173/admin`
 - 後端健康檢查：`http://localhost:8787/health`
-- Results 頁面：首頁右上角 `Results`
 
-本機開發時如果 `RESULTS_ADMIN_TOKEN` 留空或沒有設定，Results API 會允許讀取；部署到 Railway 時請務必設定 `RESULTS_ADMIN_TOKEN`。
+後臺可以查看匿名作答總覽、最近作答與下載 CSV。本機開發時如果 `RESULTS_ADMIN_TOKEN` 留空或沒有設定，Results API 會允許讀取；部署到 Railway 時請務必設定 `RESULTS_ADMIN_TOKEN`。
 
 ## Railway 後端部署
 
@@ -76,3 +76,9 @@ API 啟動時會自動建立 `game_results` 資料表。
    - `VITE_RESULTS_API_URL`：Railway API 的公開網址，例如 `https://your-api.up.railway.app`
 
 Vite 前端能讀取的環境變數必須用 `VITE_` 開頭。
+
+部署完成後，你的後臺網址會是：
+
+```text
+https://你的-vercel-網址.vercel.app/admin
+```

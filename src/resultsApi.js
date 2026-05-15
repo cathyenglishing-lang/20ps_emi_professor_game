@@ -68,3 +68,36 @@ export async function fetchResultsSummary(adminToken) {
 
   return response.json();
 }
+
+export async function downloadResultsCsv(adminToken) {
+  if (!isResultsEnabled()) {
+    throw new Error("Results API is not configured.");
+  }
+
+  const response = await fetch(`${RESULTS_API_URL}/api/results.csv`, {
+    headers: adminToken
+      ? { Authorization: `Bearer ${adminToken}` }
+      : {},
+  });
+
+  if (!response.ok) {
+    let message = `${response.status} ${response.statusText}`;
+    try {
+      const error = await response.json();
+      message = error.error || error.message || message;
+    } catch {
+      // Keep the HTTP status text when the response is not JSON.
+    }
+    throw new Error(message);
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `20ps-results-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
