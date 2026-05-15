@@ -70,6 +70,31 @@ export async function fetchResultsSummary(adminToken) {
   return response.json();
 }
 
+export async function fetchResultDetail(adminToken, id) {
+  if (!isResultsEnabled()) {
+    throw new Error("Results API is not configured.");
+  }
+
+  const response = await fetch(`${RESULTS_API_URL}/api/results/${encodeURIComponent(id)}`, {
+    headers: adminToken
+      ? { Authorization: `Bearer ${adminToken}` }
+      : {},
+  });
+
+  if (!response.ok) {
+    let message = `${response.status} ${response.statusText}`;
+    try {
+      const error = await response.json();
+      message = error.error || error.message || message;
+    } catch {
+      // Keep the HTTP status text when the response is not JSON.
+    }
+    throw new Error(message);
+  }
+
+  return response.json();
+}
+
 export async function downloadResultsCsv(adminToken) {
   if (!isResultsEnabled()) {
     throw new Error("Results API is not configured.");

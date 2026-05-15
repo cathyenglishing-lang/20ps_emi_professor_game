@@ -73,6 +73,19 @@ app.get("/api/results/summary", requireAdmin, async (req, res, next) => {
   }
 });
 
+app.get("/api/results/:id", requireAdmin, async (req, res, next) => {
+  try {
+    const row = pool ? await readResultPostgres(req.params.id) : await readResultLocal(req.params.id);
+    if (!row) {
+      res.status(404).json({ ok: false, error: "Result not found." });
+      return;
+    }
+    res.json({ ok: true, result: row });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/results.csv", requireAdmin, async (req, res, next) => {
   try {
     const rows = pool ? await readRecentPostgres(5000) : await readRecentLocal(5000);
@@ -193,6 +206,17 @@ async function readRecentPostgres(limit) {
   return rows;
 }
 
+async function readResultPostgres(id) {
+  const { rows } = await pool.query(
+    `select id, created_at, player_name, mode, score, total, duration_seconds, answers, level_breakdown
+     from game_results
+     where id = $1
+     limit 1`,
+    [id],
+  );
+  return rows[0] || null;
+}
+
 async function insertLocal(result) {
   const rows = await readAllLocal();
   const row = {
@@ -209,6 +233,11 @@ async function insertLocal(result) {
 async function readRecentLocal(limit) {
   const rows = await readAllLocal();
   return rows.slice(0, limit);
+}
+
+async function readResultLocal(id) {
+  const rows = await readAllLocal();
+  return rows.find(row => row.id === id) || null;
 }
 
 async function readAllLocal() {

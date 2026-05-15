@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from "react";
-import { downloadResultsCsv, fetchResultsSummary, submitGameResult } from "./src/resultsApi.js";
+import { downloadResultsCsv, fetchResultDetail, fetchResultsSummary, submitGameResult } from "./src/resultsApi.js";
 
 /* ─── DATA ──────────────────────────────────────────────────────────────── */
 const LEVELS = [
@@ -877,6 +877,8 @@ function ResultsDashboard({ onBack }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [expandedAttemptId, setExpandedAttemptId] = useState(null);
+  const [detailAttempt, setDetailAttempt] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   async function loadResults(token = adminToken) {
     setLoading(true);
@@ -885,6 +887,7 @@ function ResultsDashboard({ onBack }) {
       const summary = await fetchResultsSummary(token.trim());
       setData(summary);
       setExpandedAttemptId(null);
+      setDetailAttempt(null);
       if (token.trim()) sessionStorage.setItem("20ps-results-token", token.trim());
     } catch (err) {
       setError(err.message || "Could not load results.");
@@ -900,6 +903,35 @@ function ResultsDashboard({ onBack }) {
     } catch (err) {
       setError(err.message || "Could not export CSV.");
     }
+  }
+
+  async function openDetail(id) {
+    setError("");
+    setDetailLoading(true);
+    try {
+      const detail = await fetchResultDetail(adminToken.trim(), id);
+      setDetailAttempt(detail.result);
+      setExpandedAttemptId(null);
+    } catch (err) {
+      setError(err.message || "Could not load student detail.");
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  if (detailAttempt) {
+    return (
+      <div style={{ minHeight: "100vh", background: BASE.bg, fontFamily: "'Cormorant Garamond', serif" }}>
+        <style>{css}</style>
+        <div style={{ borderBottom: `1px solid ${BASE.rule}`, padding: "16px 32px", background: "white", display: "flex", alignItems: "center", gap: 16 }}>
+          <button className="btn-ghost" onClick={() => setDetailAttempt(null)}>← Back to Admin</button>
+          <div style={{ fontFamily: "'DM Mono'", fontSize: 12, color: BASE.muted, letterSpacing: "0.08em" }}>STUDENT DETAIL</div>
+        </div>
+        <div style={{ maxWidth: 980, margin: "48px auto", padding: "0 32px" }}>
+          <AttemptDetails attempt={detailAttempt} />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -1004,7 +1036,7 @@ function ResultsDashboard({ onBack }) {
                       return (
                         <Fragment key={row.id}>
                           <tr
-                            onClick={() => setExpandedAttemptId(expanded ? null : row.id)}
+                            onClick={() => openDetail(row.id)}
                             style={{ cursor: "pointer", background: expanded ? "#F7F6F2" : "white" }}
                           >
                             <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontSize: 14, color: BASE.muted }}>{formatDate(row.created_at)}</td>
@@ -1016,7 +1048,7 @@ function ResultsDashboard({ onBack }) {
                             </td>
                             <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontSize: 15, color: BASE.muted }}>{row.duration_seconds ?? "—"}s</td>
                             <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontFamily: "'DM Mono'", fontSize: 11, color: "#B5451B" }}>
-                              {expanded ? "Hide" : "View"} Details
+                              {detailLoading ? "Loading..." : "Open Detail"}
                             </td>
                           </tr>
                           {expanded && (
