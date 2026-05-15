@@ -16,6 +16,7 @@ export async function submitGameResult(result) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
+      player_name: result.player_name,
       mode: result.mode,
       score: result.score,
       total: result.total,

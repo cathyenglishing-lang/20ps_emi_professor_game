@@ -10,6 +10,8 @@
 
 本機測試時不需要先架資料庫。API 如果沒有讀到 `DATABASE_URL`，會把結果寫到 `server/data/results.json`。
 
+玩家開始遊戲前會先輸入姓名；作答結果會連同姓名、分數、耗時與逐題紀錄一起送到後端。
+
 ## 本機測試
 
 先安裝套件：
@@ -65,6 +67,7 @@ npm run start:api
 ```
 
 API 啟動時會自動建立 `game_results` 資料表。
+如果資料表已經存在，也會自動補上 `player_name` 欄位。
 
 ## Vercel 前端部署
 

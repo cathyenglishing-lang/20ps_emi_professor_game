@@ -108,6 +108,7 @@ async function initStorage() {
     create table if not exists game_results (
       id uuid primary key default gen_random_uuid(),
       created_at timestamptz not null default now(),
+      player_name text,
       mode text not null check (mode in ('puzzle', 'quiz')),
       score integer not null check (score >= 0),
       total integer not null check (total > 0),
@@ -121,6 +122,10 @@ async function initStorage() {
       constraint level_breakdown_must_be_object check (jsonb_typeof(level_breakdown) = 'object')
     );
   `);
+  await pool.query(`
+    alter table game_results
+    add column if not exists player_name text;
+  `);
 }
 
 function shouldUseSsl(url) {
@@ -129,6 +134,7 @@ function shouldUseSsl(url) {
 }
 
 function normalizeResult(body) {
+  const player_name = String(body.player_name || "").trim().slice(0, 120) || "Anonymous";
   const mode = String(body.mode || "");
   const score = Number(body.score);
   const total = Number(body.total);
@@ -143,6 +149,7 @@ function normalizeResult(body) {
   }
 
   return {
+    player_name,
     mode,
     score,
     total,
@@ -157,10 +164,11 @@ function normalizeResult(body) {
 async function insertPostgres(result) {
   const { rows } = await pool.query(
     `insert into game_results
-      (mode, score, total, duration_seconds, answers, level_breakdown, app_version, user_context)
-     values ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8::jsonb)
+      (player_name, mode, score, total, duration_seconds, answers, level_breakdown, app_version, user_context)
+     values ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9::jsonb)
      returning id, created_at`,
     [
+      result.player_name,
       result.mode,
       result.score,
       result.total,
@@ -176,7 +184,7 @@ async function insertPostgres(result) {
 
 async function readRecentPostgres(limit) {
   const { rows } = await pool.query(
-    `select id, created_at, mode, score, total, duration_seconds, answers, level_breakdown
+    `select id, created_at, player_name, mode, score, total, duration_seconds, answers, level_breakdown
      from game_results
      order by created_at desc
      limit $1`,
@@ -259,6 +267,7 @@ function buildLevelTotals(rows) {
 function rowsToCsv(rows) {
   const headers = [
     "created_at",
+    "player_name",
     "mode",
     "score",
     "total",
@@ -280,6 +289,7 @@ function rowsToCsv(rows) {
     const levels = row.level_breakdown || {};
     return [
       formatCsvDate(row.created_at),
+      row.player_name || "Anonymous",
       row.mode,
       row.score,
       row.total,

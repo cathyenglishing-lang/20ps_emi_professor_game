@@ -181,7 +181,24 @@ const css = `
 `;
 
 /* ─── HOME SCREEN ───────────────────────────────────────────────────────── */
-function HomeScreen({ onStart }) {
+function HomeScreen({ onStart, playerName, setPlayerName }) {
+  const [nameTouched, setNameTouched] = useState(false);
+  const cleanName = playerName.trim();
+  const canStart = cleanName.length > 0;
+
+  function handleStart(mode) {
+    setNameTouched(true);
+    if (!canStart) return;
+    localStorage.setItem("20ps-player-name", cleanName);
+    onStart(mode);
+  }
+
+  function handleNameChange(value) {
+    setPlayerName(value);
+    if (value.trim()) localStorage.setItem("20ps-player-name", value.trim());
+    else localStorage.removeItem("20ps-player-name");
+  }
+
   return (
     <div style={{ minHeight: "100vh", background: BASE.bg, display: "flex", flexDirection: "column" }}>
       <style>{css}</style>
@@ -223,6 +240,42 @@ function HomeScreen({ onStart }) {
           ))}
         </div>
 
+        {/* Player identity */}
+        <div className="fade-in" style={{ width: "100%", maxWidth: 720, marginBottom: 24 }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-end", background: "white", border: `1px solid ${nameTouched && !canStart ? "#E8A98A" : BASE.rule}`, borderRadius: 4, padding: "18px 20px" }}>
+            <label style={{ flex: 1 }}>
+              <div style={{ fontFamily: "'DM Mono'", fontSize: 10, letterSpacing: "0.14em", color: BASE.muted, textTransform: "uppercase", marginBottom: 8 }}>
+                Your Name
+              </div>
+              <input
+                value={playerName}
+                onChange={e => handleNameChange(e.target.value)}
+                onBlur={() => setNameTouched(true)}
+                placeholder="Enter your name before starting"
+                style={{
+                  width: "100%",
+                  border: "none",
+                  borderBottom: `1px solid ${BASE.rule}`,
+                  padding: "6px 0 8px",
+                  outline: "none",
+                  fontFamily: "'Cormorant Garamond', serif",
+                  fontSize: 22,
+                  color: BASE.ink,
+                  background: "transparent",
+                }}
+              />
+            </label>
+            <div style={{ fontFamily: "'DM Mono'", fontSize: 11, color: canStart ? "#3D6B35" : BASE.muted, minWidth: 116, textAlign: "right" }}>
+              {canStart ? "Ready" : "Required"}
+            </div>
+          </div>
+          {nameTouched && !canStart && (
+            <div style={{ marginTop: 8, fontFamily: "'DM Mono'", fontSize: 11, color: "#B5451B" }}>
+              Please enter your name so your result can be saved.
+            </div>
+          )}
+        </div>
+
         {/* Mode selection */}
         <div className="fade-in" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, width: "100%", maxWidth: 720, marginBottom: 48 }}>
           {[
@@ -245,13 +298,14 @@ function HomeScreen({ onStart }) {
           ].map(m => (
             <div
               key={m.mode}
-              onClick={() => onStart(m.mode)}
+              onClick={() => handleStart(m.mode)}
               style={{
                 background: "white", border: `1px solid ${BASE.rule}`, borderRadius: 4,
-                padding: "32px 28px", cursor: "pointer",
+                padding: "32px 28px", cursor: canStart ? "pointer" : "not-allowed",
+                opacity: canStart ? 1 : 0.62,
                 transition: "border-color 0.2s, box-shadow 0.2s",
               }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = "#B5451B"; e.currentTarget.style.boxShadow = "0 4px 24px rgba(0,0,0,0.08)"; }}
+              onMouseEnter={e => { if (!canStart) return; e.currentTarget.style.borderColor = "#B5451B"; e.currentTarget.style.boxShadow = "0 4px 24px rgba(0,0,0,0.08)"; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = BASE.rule; e.currentTarget.style.boxShadow = "none"; }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
@@ -261,7 +315,7 @@ function HomeScreen({ onStart }) {
               <div style={{ fontSize: 22, fontWeight: 600, color: BASE.ink, marginBottom: 4 }}>{m.title}</div>
               <div style={{ fontFamily: "'DM Mono'", fontSize: 11, color: "#B5451B", letterSpacing: "0.08em", marginBottom: 16 }}>{m.subtitle}</div>
               <div style={{ fontSize: 15, color: BASE.muted, lineHeight: 1.7 }}>{m.desc}</div>
-              <div style={{ marginTop: 20, fontFamily: "'DM Mono'", fontSize: 12, color: "#B5451B" }}>Begin →</div>
+              <div style={{ marginTop: 20, fontFamily: "'DM Mono'", fontSize: 12, color: canStart ? "#B5451B" : BASE.muted }}>{canStart ? "Begin →" : "Name required"}</div>
             </div>
           ))}
         </div>
@@ -275,7 +329,7 @@ function HomeScreen({ onStart }) {
 }
 
 /* ─── PUZZLE MODE ───────────────────────────────────────────────────────── */
-function PuzzleMode({ onBack }) {
+function PuzzleMode({ onBack, playerName }) {
   const [cards, setCards] = useState(() => shuffle(CARDS).map(c => ({ ...c, placed: null })));
   const [dragging, setDragging] = useState(null);
   const [dragOver, setDragOver] = useState(null);
@@ -311,6 +365,7 @@ function PuzzleMode({ onBack }) {
     setSubmitStatus("saving");
     try {
       const result = await submitGameResult({
+        player_name: playerName.trim(),
         mode: "puzzle",
         score: n,
         total: cards.length,
@@ -521,7 +576,7 @@ function PuzzleMode({ onBack }) {
 }
 
 /* ─── QUIZ MODE ─────────────────────────────────────────────────────────── */
-function QuizMode({ onBack }) {
+function QuizMode({ onBack, playerName }) {
   const [phase, setPhase] = useState("intro"); // intro | quiz | result
   const [queue] = useState(() => shuffle(CARDS));
   const [optionsByCard] = useState(() => Object.fromEntries(CARDS.map(card => {
@@ -558,6 +613,7 @@ function QuizMode({ onBack }) {
     setSubmitted(true);
     setSubmitStatus("saving");
     submitGameResult({
+      player_name: playerName.trim(),
       mode: "quiz",
       score,
       total: queue.length,
@@ -570,7 +626,7 @@ function QuizMode({ onBack }) {
         console.warn("Could not save quiz result:", error);
         setSubmitStatus("error");
       });
-  }, [phase, submitted, log, score, queue.length, startedAt]);
+  }, [phase, submitted, log, score, queue.length, startedAt, playerName]);
 
   function select(lKey) {
     if (showAnswer) return;
@@ -933,7 +989,7 @@ function ResultsDashboard({ onBack }) {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr>
-                      {["Time", "Mode", "Score", "Duration"].map(label => (
+                      {["Time", "Name", "Mode", "Score", "Duration"].map(label => (
                         <th key={label} style={{ textAlign: "left", padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontFamily: "'DM Mono'", fontSize: 10, color: BASE.muted, letterSpacing: "0.1em" }}>{label}</th>
                       ))}
                     </tr>
@@ -942,6 +998,7 @@ function ResultsDashboard({ onBack }) {
                     {data.recent.map(row => (
                       <tr key={row.id}>
                         <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontSize: 14, color: BASE.muted }}>{formatDate(row.created_at)}</td>
+                        <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontSize: 15, color: BASE.ink }}>{row.player_name || "Anonymous"}</td>
                         <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontFamily: "'DM Mono'", fontSize: 12, color: BASE.ink }}>{row.mode}</td>
                         <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontSize: 15, color: BASE.ink }}>{row.score}/{row.total}</td>
                         <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontSize: 15, color: BASE.muted }}>{row.duration_seconds ?? "—"}s</td>
@@ -972,6 +1029,7 @@ function formatDate(value) {
 export default function App() {
   const initialScreen = window.location.pathname.startsWith("/admin") ? "results" : "home";
   const [screen, setScreen] = useState(initialScreen);
+  const [playerName, setPlayerName] = useState(() => localStorage.getItem("20ps-player-name") || "");
 
   useEffect(() => {
     function syncPath() {
@@ -986,8 +1044,8 @@ export default function App() {
     setScreen("home");
   }
 
-  if (screen === "puzzle") return <PuzzleMode onBack={goHome} />;
-  if (screen === "quiz")   return <QuizMode   onBack={goHome} />;
+  if (screen === "puzzle") return <PuzzleMode onBack={goHome} playerName={playerName} />;
+  if (screen === "quiz")   return <QuizMode   onBack={goHome} playerName={playerName} />;
   if (screen === "results") return <ResultsDashboard onBack={goHome} />;
-  return <HomeScreen onStart={setScreen} />;
+  return <HomeScreen onStart={setScreen} playerName={playerName} setPlayerName={setPlayerName} />;
 }
