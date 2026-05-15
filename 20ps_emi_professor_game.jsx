@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { downloadResultsCsv, fetchResultsSummary, submitGameResult } from "./src/resultsApi.js";
 
 /* ─── DATA ──────────────────────────────────────────────────────────────── */
@@ -876,6 +876,7 @@ function ResultsDashboard({ onBack }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [expandedAttemptId, setExpandedAttemptId] = useState(null);
 
   async function loadResults(token = adminToken) {
     setLoading(true);
@@ -883,6 +884,7 @@ function ResultsDashboard({ onBack }) {
     try {
       const summary = await fetchResultsSummary(token.trim());
       setData(summary);
+      setExpandedAttemptId(null);
       if (token.trim()) sessionStorage.setItem("20ps-results-token", token.trim());
     } catch (err) {
       setError(err.message || "Could not load results.");
@@ -995,21 +997,118 @@ function ResultsDashboard({ onBack }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.recent.map(row => (
-                      <tr key={row.id}>
-                        <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontSize: 14, color: BASE.muted }}>{formatDate(row.created_at)}</td>
-                        <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontSize: 15, color: BASE.ink }}>{row.player_name || "Anonymous"}</td>
-                        <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontFamily: "'DM Mono'", fontSize: 12, color: BASE.ink }}>{row.mode}</td>
-                        <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontSize: 15, color: BASE.ink }}>{row.score}/{row.total}</td>
-                        <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontSize: 15, color: BASE.muted }}>{row.duration_seconds ?? "—"}s</td>
-                      </tr>
-                    ))}
+                    {data.recent.map(row => {
+                      const expanded = expandedAttemptId === row.id;
+                      return (
+                        <Fragment key={row.id}>
+                          <tr
+                            onClick={() => setExpandedAttemptId(expanded ? null : row.id)}
+                            style={{ cursor: "pointer", background: expanded ? "#F7F6F2" : "white" }}
+                          >
+                            <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontSize: 14, color: BASE.muted }}>{formatDate(row.created_at)}</td>
+                            <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontSize: 15, color: BASE.ink }}>{row.player_name || "Anonymous"}</td>
+                            <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontFamily: "'DM Mono'", fontSize: 12, color: BASE.ink }}>{row.mode}</td>
+                            <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontSize: 15, color: BASE.ink }}>{row.score}/{row.total}</td>
+                            <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontSize: 15, color: BASE.muted }}>{row.duration_seconds ?? "—"}s</td>
+                          </tr>
+                          {expanded && (
+                            <tr>
+                              <td colSpan={5} style={{ padding: 0, borderBottom: `1px solid ${BASE.rule}`, background: "#FAFAF7" }}>
+                                <AttemptDetails attempt={row} />
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function AttemptDetails({ attempt }) {
+  const answers = Array.isArray(attempt.answers) ? attempt.answers : [];
+
+  return (
+    <div className="fade-in" style={{ padding: "20px 24px 24px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 18, alignItems: "baseline", marginBottom: 16 }}>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 600, color: BASE.ink }}>{attempt.player_name || "Anonymous"}</div>
+          <div style={{ fontFamily: "'DM Mono'", fontSize: 11, color: BASE.muted, marginTop: 4 }}>
+            {attempt.mode} · {attempt.score}/{attempt.total} · {attempt.duration_seconds ?? "—"}s
+          </div>
+        </div>
+        <div style={{ fontFamily: "'DM Mono'", fontSize: 11, color: BASE.muted }}>
+          {formatDate(attempt.created_at)}
+        </div>
+      </div>
+
+      {answers.length === 0 ? (
+        <div style={{ fontSize: 15, color: BASE.muted, fontStyle: "italic" }}>
+          No item-level answer record is available for this attempt.
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: 8 }}>
+          {answers.map((answer, index) => {
+            const selected = levelOf(answer.selected_level);
+            const correct = levelOf(answer.correct_level);
+            return (
+              <div key={`${answer.id || index}-${index}`} style={{
+                display: "grid",
+                gridTemplateColumns: "42px minmax(150px, 1fr) minmax(130px, 0.8fr) minmax(130px, 0.8fr) 72px",
+                gap: 12,
+                alignItems: "center",
+                background: "white",
+                border: `1px solid ${answer.correct ? "#8EC487" : "#E8A98A"}`,
+                borderRadius: 4,
+                padding: "10px 12px",
+              }}>
+                <div style={{ fontFamily: "'DM Mono'", fontSize: 11, color: BASE.muted }}>{String(index + 1).padStart(2, "0")}</div>
+                <div>
+                  <div style={{ fontSize: 16, color: BASE.ink, fontWeight: 600 }}>{answer.name || answer.id}</div>
+                  <div style={{ fontFamily: "'DM Mono'", fontSize: 10, color: BASE.muted, marginTop: 2 }}>{answer.id}</div>
+                </div>
+                <LevelPill label="Selected" level={selected} fallback={answer.selected_level} />
+                <LevelPill label="Correct" level={correct} fallback={answer.correct_level} />
+                <div style={{ fontFamily: "'DM Mono'", fontSize: 12, color: answer.correct ? "#3D6B35" : "#B5451B", textAlign: "right" }}>
+                  {answer.correct ? "Correct" : "Wrong"}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LevelPill({ label, level, fallback }) {
+  return (
+    <div>
+      <div style={{ fontFamily: "'DM Mono'", fontSize: 9, letterSpacing: "0.1em", color: BASE.muted, textTransform: "uppercase", marginBottom: 4 }}>
+        {label}
+      </div>
+      <div style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        border: `1px solid ${level?.border || BASE.rule}`,
+        background: level?.soft || "white",
+        color: level?.hue || BASE.ink,
+        borderRadius: 4,
+        padding: "5px 8px",
+        fontFamily: "'DM Mono'",
+        fontSize: 11,
+        whiteSpace: "nowrap",
+      }}>
+        <span>{level?.icon || "·"}</span>
+        <span>{level?.label || fallback || "—"}</span>
       </div>
     </div>
   );
