@@ -991,7 +991,7 @@ function ResultsDashboard({ onBack }) {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr>
-                      {["Time", "Name", "Mode", "Score", "Duration", "Details"].map(label => (
+                      {["Time", "Name", "Mode", "Score", "Mistakes", "Duration", "Details"].map(label => (
                         <th key={label} style={{ textAlign: "left", padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontFamily: "'DM Mono'", fontSize: 10, color: BASE.muted, letterSpacing: "0.1em" }}>{label}</th>
                       ))}
                     </tr>
@@ -999,6 +999,8 @@ function ResultsDashboard({ onBack }) {
                   <tbody>
                     {data.recent.map(row => {
                       const expanded = expandedAttemptId === row.id;
+                      const answers = Array.isArray(row.answers) ? row.answers : [];
+                      const mistakes = answers.filter(answer => !answer.correct).length;
                       return (
                         <Fragment key={row.id}>
                           <tr
@@ -1009,6 +1011,9 @@ function ResultsDashboard({ onBack }) {
                             <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontSize: 15, color: BASE.ink }}>{row.player_name || "Anonymous"}</td>
                             <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontFamily: "'DM Mono'", fontSize: 12, color: BASE.ink }}>{row.mode}</td>
                             <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontSize: 15, color: BASE.ink }}>{row.score}/{row.total}</td>
+                            <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontSize: 15, color: mistakes ? "#B5451B" : "#3D6B35" }}>
+                              {answers.length ? `${mistakes}/${answers.length}` : "—"}
+                            </td>
                             <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontSize: 15, color: BASE.muted }}>{row.duration_seconds ?? "—"}s</td>
                             <td style={{ padding: "12px 20px", borderBottom: `1px solid ${BASE.rule}`, fontFamily: "'DM Mono'", fontSize: 11, color: "#B5451B" }}>
                               {expanded ? "Hide" : "View"} Details
@@ -1016,7 +1021,7 @@ function ResultsDashboard({ onBack }) {
                           </tr>
                           {expanded && (
                             <tr>
-                              <td colSpan={6} style={{ padding: 0, borderBottom: `1px solid ${BASE.rule}`, background: "#FAFAF7" }}>
+                              <td colSpan={7} style={{ padding: 0, borderBottom: `1px solid ${BASE.rule}`, background: "#FAFAF7" }}>
                                 <AttemptDetails attempt={row} />
                               </td>
                             </tr>
@@ -1037,6 +1042,7 @@ function ResultsDashboard({ onBack }) {
 
 function AttemptDetails({ attempt }) {
   const answers = Array.isArray(attempt.answers) ? attempt.answers : [];
+  const mistakes = answers.filter(answer => !answer.correct);
 
   return (
     <div className="fade-in" style={{ padding: "20px 24px 24px" }}>
@@ -1044,7 +1050,7 @@ function AttemptDetails({ attempt }) {
         <div>
           <div style={{ fontSize: 22, fontWeight: 600, color: BASE.ink }}>{attempt.player_name || "Anonymous"}</div>
           <div style={{ fontFamily: "'DM Mono'", fontSize: 11, color: BASE.muted, marginTop: 4 }}>
-            {attempt.mode} · {attempt.score}/{attempt.total} · {attempt.duration_seconds ?? "—"}s
+            {attempt.mode} · {attempt.score}/{attempt.total} · {mistakes.length} mistakes · {attempt.duration_seconds ?? "—"}s
           </div>
         </div>
         <div style={{ fontFamily: "'DM Mono'", fontSize: 11, color: BASE.muted }}>
@@ -1057,8 +1063,44 @@ function AttemptDetails({ attempt }) {
           No item-level answer record is available for this attempt.
         </div>
       ) : (
-        <div style={{ display: "grid", gap: 8 }}>
-          {answers.map((answer, index) => {
+        <>
+          <div style={{ border: `1px solid ${mistakes.length ? "#E8A98A" : "#8EC487"}`, background: mistakes.length ? "#FDF0EB" : "#EDF5EC", borderRadius: 4, padding: 16, marginBottom: 18 }}>
+            <div style={{ fontFamily: "'DM Mono'", fontSize: 11, color: mistakes.length ? "#8A2E0D" : "#2A4D25", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>
+              Mistakes ({mistakes.length})
+            </div>
+            {mistakes.length === 0 ? (
+              <div style={{ fontSize: 16, color: "#2A4D25", fontStyle: "italic" }}>
+                No mistakes in this attempt.
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: 8 }}>
+                {mistakes.map((answer, index) => {
+                  const selected = levelOf(answer.selected_level);
+                  const correct = levelOf(answer.correct_level);
+                  return (
+                    <div key={`mistake-${answer.id || index}-${index}`} style={{ background: "white", border: "1px solid #E8A98A", borderRadius: 4, padding: "12px 14px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", marginBottom: 8 }}>
+                        <div style={{ fontSize: 17, color: BASE.ink, fontWeight: 600 }}>{answer.name || answer.id}</div>
+                        <div style={{ fontFamily: "'DM Mono'", fontSize: 10, color: BASE.muted }}>{answer.id}</div>
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+                        <span style={{ fontFamily: "'DM Mono'", fontSize: 11, color: "#B5451B" }}>Student chose</span>
+                        <LevelPill label="Selected" level={selected} fallback={answer.selected_level} />
+                        <span style={{ fontFamily: "'DM Mono'", fontSize: 11, color: "#3D6B35" }}>Correct answer</span>
+                        <LevelPill label="Correct" level={correct} fallback={answer.correct_level} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div style={{ fontFamily: "'DM Mono'", fontSize: 11, color: BASE.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>
+            Full Answer Record
+          </div>
+          <div style={{ display: "grid", gap: 8 }}>
+            {answers.map((answer, index) => {
             const selected = levelOf(answer.selected_level);
             const correct = levelOf(answer.correct_level);
             return (
@@ -1084,8 +1126,9 @@ function AttemptDetails({ attempt }) {
                 </div>
               </div>
             );
-          })}
-        </div>
+            })}
+          </div>
+        </>
       )}
     </div>
   );
